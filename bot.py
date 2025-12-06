@@ -1,35 +1,30 @@
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import Updater, CommandHandler
 
 TOKEN = "7936792037:AAEY8w1SamKAanqZr66Lbfd_DKUK0GUzC18"
 
-# /start command
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Bot चालू है भाई! 🔥")
+def start(update, context):
+    update.message.reply_text("Bot chal raha hai! 🔥")
 
-# /broadcast command
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def broadcast(update, context):
     msg = " ".join(context.args)
-
     if not msg:
-        await update.message.reply_text("Broadcast msg लिखो!")
+        update.message.reply_text("Kya bhejunga? Message likho.")
         return
 
-    # यहां अपनी user list डालो
-    users = [7895892794]
-
+    users = [7895892794]  # Apni Telegram ID
     for u in users:
         try:
-            await context.bot.send_message(chat_id=u, text=msg)
+            context.bot.send_message(chat_id=u, text=msg)
         except:
             pass
 
-    await update.message.reply_text("Message भेज दिया गया ✔")
+    update.message.reply_text("Message sabko bhej diya! ✔")
 
-# ---- Application Run ----
-app = ApplicationBuilder().token(TOKEN).build()
+updater = Updater(TOKEN, use_context=True)
+dp = updater.dispatcher
 
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("broadcast", broadcast))
+dp.add_handler(CommandHandler("start", start))
+dp.add_handler(CommandHandler("broadcast", broadcast))
 
-app.run_polling()
+updater.start_polling()
+updater.idle()
