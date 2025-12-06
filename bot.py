@@ -1,21 +1,22 @@
 from telegram.ext import Updater, CommandHandler
+
 # ---- YOUR BOT TOKEN ----
 TOKEN = "7936792037:AAEY8w1SamKAanqZr66Lbfd_DKUK0GUzC18"
 
 # ---- /start command ----
 def start(update, context):
-    update.message.reply_text("Bot सफलतापूर्वक चल रहा है ✔️")
+    update.message.reply_text("Bot सफलतापूर्वक चल रहा है ✔️😊")
 
 # ---- /broadcast command ----
 def broadcast(update, context):
     msg = " ".join(context.args)
 
     if not msg:
-        update.message.reply_text("❗ Broadcast भेजने के लिए: /broadcast आपका_मैसेज")
+        update.message.reply_text("❗Broadcast भेजने के लिए: /broadcast आपका_संदेश")
         return
 
     # जिन users को message भेजना है उनकी list
-    users = [7895892794]   # यहाँ अपनी Telegram ID डालो
+    users = [7895892794]  # यहाँ अपनी Telegram ID डालें
 
     for u in users:
         try:
@@ -25,7 +26,7 @@ def broadcast(update, context):
 
     update.message.reply_text("✔️ Message भेज दिया गया")
 
-# ---- RUN BOT ----
+# ---- BOT RUN ----
 updater = Updater(TOKEN, use_context=True)
 dp = updater.dispatcher
 
