@@ -1,22 +1,23 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-TOKEN = "7936792037:AAEY8w1SamKAanqZr66Lbfd_DKUK0GUzC18"   # ← यहाँ अपना Bot Token डालो
+# ==== YOUR BOT TOKEN ====
+TOKEN = "7936792037:AAEY8w1SamkAangZr66Lbfd_DKUK0GUZC18"
 
 # /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✔️ Bot चल रहा है भाई 🙂")
+    await update.message.reply_text("✅ Bot successfully चल रहा है!")
 
 # /broadcast command
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = " ".join(context.args)
 
     if not msg:
-        await update.message.reply_text("⚠️ Message लिखकर भेजें: /broadcast hello")
+        await update.message.reply_text("❗ Broadcast भेजने के लिए: /broadcast आपका_मैसेज")
         return
 
-    # उन users की list जिनको message भेजना है
-    users = [7895892794]     # ← यहाँ अपना Telegram ID डालो
+    # Users List (अपना Telegram ID)
+    users = [7895892794]
 
     for uid in users:
         try:
@@ -26,10 +27,11 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("✔️ Broadcast message भेज दिया गया!")
 
-# RUN BOT
-app = ApplicationBuilder().token(TOKEN).build()
+# Run bot  ← यह uncomment रहना चाहिए
+if __name__ == "__main__":
+    app = ApplicationBuilder().token(TOKEN).build()
 
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("broadcast", broadcast))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("broadcast", broadcast))
 
-app.run_polling()
+    app.run_polling()
