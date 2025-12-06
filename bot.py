@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-TOKEN = "7936792037:AAEY8wM1SamKAanq2r6LGoW6O5JpV1ZVf4"   # Apna token laga hua hai
+TOKEN = "7936792037:AAEY8w1SamKAanqZr66Lbfd_DKUK0GUzC18"   # NEW TOKEN
 
 # /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -16,7 +16,7 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Yahan un users ki list jinko message bhejna hai
-    users = [7895892794]   # yahan apni Telegram ID rakhna
+    users = [7895892794]   # Yahan tumhari Telegram ID
 
     for u in users:
         try:
@@ -25,7 +25,6 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
 
     await update.message.reply_text("Message broadcast ho gaya. ✔")
-
 
 # --- Application run ---
 app = ApplicationBuilder().token(TOKEN).build()
