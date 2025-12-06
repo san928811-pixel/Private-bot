@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-TOKEN = "YOUR_BOT_TOKEN_HERE"   # ← यहाँ अपना Bot Token डालो
+TOKEN = "7936792037:AAEY8w1SamKAanqZr66Lbfd_DKUK0GUzC18"   # ← यहाँ अपना Bot Token डालो
 
 # /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
