@@ -1,19 +1,22 @@
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-TOKEN = "7936792037:AAEY8w1SamKAanqZr66Lbfd_DKUK0GUzC18"
+TOKEN = "7936792037:AAEY8wM1SamKAanq2r6LGoW6O5JpV1ZVf4"   # Apna token laga hua hai
 
+# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Bot is working! 👋")
+    await update.message.reply_text("Bot chal raha hai! 👌")
 
+# /broadcast command
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = " ".join(context.args)
+
     if not msg:
-        await update.message.reply_text("❌ Message empty")
+        await update.message.reply_text("Broadcast message likho!")
         return
-    
-    # Yahan aap apni user list add karoge
-    users = [7895892794]  # Apni Telegram ID
+
+    # Yahan un users ki list jinko message bhejna hai
+    users = [7895892794]   # yahan apni Telegram ID rakhna
 
     for u in users:
         try:
@@ -21,8 +24,10 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
-    await update.message.reply_text("Message sent! ✅")
+    await update.message.reply_text("Message broadcast ho gaya. ✔")
 
+
+# --- Application run ---
 app = ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
