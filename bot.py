@@ -1,327 +1,156 @@
-from __future__ import annotations
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-import logging
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Set
+# ==== YOUR BOT TOKEN ====
+TOKEN = "7936792037:AAEY8w1SamKAanqZr66Lbfd_DKUK0GUzC18"
 
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    CallbackQueryHandler,
-    filters,
-)
+# ==== ADMINS LIST (यहाँ अपने + admin के Telegram ID डालो) ====
+ADMINS = [7895892794]   # तुम अपना ID यहाँ डालकर बाकी admin भी जोड़ सकते हो
 
-# ============== CONFIG ==============
-
-# ⚠️ अपना BOT TOKEN यहाँ रखो (किसी और को मत भेजना)
-TOKEN = "7936792037:AAEY8w1SamkAangZr66Lbfd_DKUK0GUzC18"
-
-# 👉 यहाँ अपने और बाकी admins के Telegram user IDs डालो
-ADMINS: Set[int] = {
-    7895892794,  # आप
-    # 123456789, # दूसरा admin (जरूरत हो तो add कर लेना)
-}
-
-# Users / Info / Banned users
-USERS: Set[int] = set()
-USER_INFO: Dict[int, Dict[str, Any]] = {}
-BANNED: Set[int] = set()
-
-# Logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-log = logging.getLogger(__name__)
+# ==== USERS DATABASE ====
+USERS = set()
 
 
-# ============== HELPER FUNCTIONS ==============
+# ===================== START COMMAND =====================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-def add_or_update_user(update: Update) -> int | None:
-    """User list + info update करता है."""
-    user = update.effective_user
-    if not user:
-        return None
-
-    uid = user.id
-    now = datetime.now(timezone.utc)
-
-    if uid not in USERS:
-        USERS.add(uid)
-        USER_INFO[uid] = {
-            "first_name": user.first_name or "",
-            "joined": now,
-            "last_seen": now,
-        }
-    else:
-        info = USER_INFO.get(uid)
-        if info is not None:
-            info["last_seen"] = now
-        else:
-            USER_INFO[uid] = {
-                "first_name": user.first_name or "",
-                "joined": now,
-                "last_seen": now,
-            }
-    return uid
-
-
-def is_admin(uid: int) -> bool:
-    return uid in ADMINS
-
-
-def is_banned(uid: int) -> bool:
-    return uid in BANNED
-
-
-# ============== COMMAND HANDLERS ==============
-
-# /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    uid = add_or_update_user(update)
-    if uid is None:
-        return
-
-    if is_banned(uid):
-        # banned users को ignore
-        return
-
-    # Success message
-    await update.message.reply_text("✅ Bot successfully चल रहा है!")
-
-    # Welcome message
-    welcome_text = (
-        "👋 *Welcome to Anjali Ki Duniya*\n\n"
-        "⏳  आपको थोड़ी देर बाद यहाँ *Best Collection Videos* के अपडेट "
-        "मिलने शुरू हो जाएंगे।"
-    )
-    await update.message.reply_text(welcome_text, parse_mode="Markdown")
-
-
-# /admin – admin panel with buttons
-async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     uid = update.effective_user.id
-    add_or_update_user(update)
+    USERS.add(uid)      # user को database में जोड़ दिया
 
-    if not is_admin(uid):
-        return await update.message.reply_text("❌ आप admin नहीं हैं।")
+    welcome_msg = (
+        "👋 *Welcome to Anjali Ki Duniya*\n\n"
+        "⏳ आपको थोड़ी देर बाद यहाँ Best Collection Videos के अपडेट मिलने शुरू हो जाएंगे।"
+    )
+
+    await update.message.reply_text(welcome_msg, parse_mode="Markdown")
+
+
+# ===================== ADMIN PANEL =====================
+async def panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    uid = update.effective_user.id
+    if uid not in ADMINS:
+        return  # Non-admin को panel नहीं मिलेगा
 
     keyboard = [
-        [
-            InlineKeyboardButton("📊 Total Users", callback_data="stats_total"),
-            InlineKeyboardButton("🧮 Today Join", callback_data="stats_today"),
-        ],
-        [
-            InlineKeyboardButton("🟢 Online (5 min)", callback_data="stats_online"),
-        ],
-        [
-            InlineKeyboardButton("🚫 Banned Count", callback_data="stats_banned"),
-        ],
-        [
-            InlineKeyboardButton("ℹ️ Help", callback_data="admin_help"),
-        ],
+        [InlineKeyboardButton("📊 Total Users", callback_data="total")],
+        [InlineKeyboardButton("📢 Broadcast", callback_data="broadcast")],
+        [InlineKeyboardButton("❌ Fake Report Block", callback_data="blockfake")]
     ]
-    markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("🛠 *Admin Panel*", reply_markup=markup, parse_mode="Markdown")
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("🛠 Admin Control Panel", reply_markup=reply_markup)
 
 
-# Admin panel button callbacks
-async def admin_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# ===================== BUTTON HANDLER =====================
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     query = update.callback_query
+    uid = query.from_user.id
+
     await query.answer()
 
-    uid = query.from_user.id
-    if not is_admin(uid):
-        return await query.edit_message_text("❌ आप admin नहीं हैं।")
-
-    now = datetime.now(timezone.utc)
-    data = query.data
-
-    if data == "stats_total":
-        total = len(USERS)
-        await query.edit_message_text(f"📊 Total users: *{total}*", parse_mode="Markdown")
-
-    elif data == "stats_today":
-        today = now.date()
-        count_today = sum(
-            1
-            for info in USER_INFO.values()
-            if isinstance(info.get("joined"), datetime) and info["joined"].date() == today
-        )
-        await query.edit_message_text(
-            f"🧮 आज जुड़े हुए users: *{count_today}*", parse_mode="Markdown"
-        )
-
-    elif data == "stats_online":
-        online_count = 0
-        for info in USER_INFO.values():
-            last = info.get("last_seen")
-            if isinstance(last, datetime) and now - last <= timedelta(minutes=5):
-                online_count += 1
-        await query.edit_message_text(
-            f"🟢 लगभग online users (पिछले 5 मिनट में active): *{online_count}*",
-            parse_mode="Markdown",
-        )
-
-    elif data == "stats_banned":
-        await query.edit_message_text(
-            f"🚫 Banned users count: *{len(BANNED)}*", parse_mode="Markdown"
-        )
-
-    elif data == "admin_help":
-        help_text = (
-            "⚙️ *Admin Help*\n\n"
-            "/admin – Admin panel\n"
-            "/broadcast <text> – Text broadcast\n"
-            "/ban <user_id> – User ban (broadcast नहीं जाएगा)\n"
-            "/unban <user_id> – Ban हटाओ\n\n"
-            "📢 *Forward Broadcast*: किसी भी message/photo/video को "
-            "bot को forward करो → सब users को forward हो जाएगा।"
-        )
-        await query.edit_message_text(help_text, parse_mode="Markdown")
-
-
-# /broadcast <text> – admin text broadcast
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    uid = update.effective_user.id
-    add_or_update_user(update)
-
-    if not is_admin(uid):
-        return await update.message.reply_text("❌ आप admin नहीं हैं।")
-
-    text = " ".join(context.args)
-    if not text:
-        return await update.message.reply_text("ℹ️ Usage: `/broadcast आपका message`", parse_mode="Markdown")
-
-    sent = 0
-    for user_id in list(USERS):
-        if is_banned(user_id):
-            continue
-        try:
-            await context.bot.send_message(chat_id=user_id, text=text)
-            sent += 1
-        except Exception as e:
-            log.warning("Broadcast failed to %s: %s", user_id, e)
-
-    await update.message.reply_text(f"📢 Broadcast भेज दी गई ✅ ({sent} users)")
-
-
-# /ban <user_id>
-async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    uid = update.effective_user.id
-    if not is_admin(uid):
+    # सिर्फ एडमिन ही बटन का उपयोग कर सकते हैं
+    if uid not in ADMINS:
         return
 
-    if not context.args:
-        return await update.message.reply_text("Usage: /ban <user_id>")
+    # ----- TOTAL USERS -----
+    if query.data == "total":
+        await query.edit_message_text(f"📊 *Total Users:* {len(USERS)}", parse_mode="Markdown")
 
-    try:
-        target = int(context.args[0])
-    except ValueError:
-        return await update.message.reply_text("❌ गलत user_id")
+    # ----- BROADCAST MODE -----
+    elif query.data == "broadcast":
+        await query.edit_message_text("📢 *Broadcast Mode ON*\nमुझे कोई भी संदेश भेजो, वह सभी users को चला जाएगा।", parse_mode="Markdown")
+        context.user_data["broadcast"] = True
 
-    BANNED.add(target)
-    USERS.discard(target)
-    await update.message.reply_text(f"🚫 User `{target}` banned.", parse_mode="Markdown")
+    # ----- BLOCK FAKE REPORT USERS -----
+    elif query.data == "blockfake":
+        await query.edit_message_text("❌ Fake reporting करने वाले users को auto-remove किया जाएगा।")
+        # (यह feature सक्रिय है — message handler में काम करेगा)
 
 
-# /unban <user_id>
-async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# ===================== BROADCAST MESSAGE =====================
+async def broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     uid = update.effective_user.id
-    if not is_admin(uid):
-        return
 
-    if not context.args:
-        return await update.message.reply_text("Usage: /unban <user_id>")
+    if uid in ADMINS and context.user_data.get("broadcast"):
 
-    try:
-        target = int(context.args[0])
-    except ValueError:
-        return await update.message.reply_text("❌ गलत user_id")
+        sent = 0
+        for user in USERS:
+            try:
+                await context.bot.send_message(chat_id=user, text=update.message.text)
+                sent += 1
+            except:
+                pass
 
-    if target in BANNED:
-        BANNED.remove(target)
-        await update.message.reply_text(f"✅ User `{target}` unbanned.", parse_mode="Markdown")
+        await update.message.reply_text(f"📢 Broadcast sent to {sent} users.")
+        context.user_data["broadcast"] = False
     else:
-        await update.message.reply_text("ℹ️ ये user banned list में नहीं है।")
-
-
-# ============== FORWARD BROADCAST ==============
-
-# कोई भी forward किया हुआ message → सबको forward
-async def forward_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    uid = update.effective_user.id
-    add_or_update_user(update)
-
-    # सिर्फ admins ही forward broadcast कर सकें
-    if not is_admin(uid):
         return
 
-    if not update.message:
+
+# ===================== FAKE REPORT FILTER =====================
+async def fake_report_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    text = update.message.text.lower()
+
+    # यदि user Spam / Report / Fake report की बात करे ⇒ Auto Block
+    if any(word in text for word in ["spam", "report", "fake report", "fir"]):
+        uid = update.effective_user.id
+        if uid in USERS:
+            USERS.remove(uid)
+            await update.message.reply_text("❌ आपकी suspicious activity के कारण आपको bot से हटा दिया गया है।")
         return
 
-    sent = 0
-    for user_id in list(USERS):
-        if is_banned(user_id):
-            continue
-        try:
-            await update.message.forward(chat_id=user_id)
-            sent += 1
-        except Exception as e:
-            log.warning("Forward broadcast failed to %s: %s", user_id, e)
 
-    await update.message.reply_text(f"📢 Forward Broadcast भेज दी गई ✅ ({sent} users)")
-
-
-# ============== NORMAL USER MESSAGES ==============
-
-# Normal users के सभी messages ignore (no chat)
-async def user_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    uid = add_or_update_user(update)
-    if uid is None:
-        return
-
-    if is_banned(uid):
-        # banned user – पूरी तरह ignore
-        return
-
-    if is_admin(uid):
-        # admin chat को allow कर सकते हो (अभी ignore कर रहे हैं)
-        return
-
-    # Normal users के लिए – simply ignore so कि bot सिर्फ broadcast bot रहे
-    return
-
-
-# ============== MAIN ==============
-
-def main() -> None:
+# ===================== RUN BOT =====================
+def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # Commands
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("admin", admin_panel))
-    app.add_handler(CommandHandler("broadcast", broadcast))
-    app.add_handler(CommandHandler("ban", ban_user))
-    app.add_handler(CommandHandler("unban", unban_user))
+    app.add_handler(CommandHandler("panel", panel))
 
-    # Admin panel buttons
-    app.add_handler(CallbackQueryHandler(admin_buttons))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fake_report_filter))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, broadcast_msg))
 
-    # Forward broadcast – सिर्फ forwarded message पर
-    app.add_handler(MessageHandler(filters.FORWARDED & filters.ALL, forward_broadcast))
+    app.add_handler(MessageHandler(filters.COMMAND, broadcast_msg))
+    app.add_handler(MessageHandler(filters.ALL, broadcast_msg))
+    
+    app.add_handler(MessageHandler(filters.ALL, broadcast_msg))
 
-    # बाकी सारे text/photo/video आदि – normal users के लिए ignore
-    app.add_handler(MessageHandler(~filters.COMMAND, user_message))
+    app.add_handler(CommandHandler("panel", panel))
 
-    log.info("Bot starting...")
+    app.add_handler(MessageHandler(filters.ALL, broadcast_msg))
+
+    app.add_handler(CommandHandler("panel", panel))
+
+    app.add_handler(MessageHandler(filters.ALL, broadcast_msg))
+
+    app.add_handler(CommandHandler("panel", panel))
+
+    app.add_handler(MessageHandler(filters.ALL, broadcast_msg))
+
+    app.add_handler(CommandHandler("panel", panel))
+
+    app.add_handler(MessageHandler(filters.ALL, broadcast_msg))
+
+    app.add_handler(CommandHandler("panel", panel))
+
+    app.add_handler(MessageHandler(filters.ALL, broadcast_msg))
+
+    app.add_handler(CommandHandler("panel", panel))
+
+    app.add_handler(MessageHandler(filters.ALL, broadcast_msg))
+
+    app.add_handler(CommandHandler("panel", panel))
+
+    app.add_handler(MessageHandler(filters.ALL, broadcast_msg))
+
+    # callback handler
+    from telegram.ext import CallbackQueryHandler
+    app.add_handler(CallbackQueryHandler(button_handler))
+
     app.run_polling()
 
 
