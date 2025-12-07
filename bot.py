@@ -1,56 +1,58 @@
+import json
 from telegram import (
-    Update, InlineKeyboardButton, InlineKeyboardMarkup,
-    Message
+    Update, InlineKeyboardButton, InlineKeyboardMarkup
 )
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     CallbackQueryHandler, ContextTypes, filters
 )
-from datetime import datetime
 
-# ==============================
-# BOT TOKEN
-# ==============================
 TOKEN = "7936792037:AAEY8w1SamKAanqZr66Lbfd_DKUK0GUzC18"
 
 # ==============================
-# ADMIN IDs
+# ADMIN LIST
 # ==============================
 ADMINS = {7895892794}
 
 # ==============================
-# USER DATABASE
+# LOAD USERS FROM FILE
 # ==============================
-USERS = set()
-TODAY = set()
-ONLINE = set()
+def load_users():
+    try:
+        with open("users.json", "r") as f:
+            return set(json.load(f))
+    except:
+        return set()
 
-# message tracking for delete sync
-LAST_BROADCAST = {}  # {user_id : message_id}
+def save_users():
+    with open("users.json", "w") as f:
+        json.dump(list(USERS), f)
+
+USERS = load_users()
+LAST_BROADCAST = {}  # {user_id: message_id}
 
 
 # ==============================
-# /start
+# START COMMAND
 # ==============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
 
     USERS.add(uid)
-    TODAY.add(uid)
-    ONLINE.add(uid)
+    save_users()
 
     welcome = (
         "👋 *Welcome to Anjali Ki Duniya*\n\n"
-        "⏳ जल्द ही आपको Best Collection Videos मिलना शुरू हो जाएँगी।"
+        "⏳ जल्द ही आपको यहाँ Best Collection Videos मिलना शुरू हो जाएँगी।"
     )
 
     await update.message.reply_text(welcome, parse_mode="Markdown")
 
 
 # ==============================
-# /id command
+# ID SHOW
 # ==============================
-async def show_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_id(update, context):
     uid = update.effective_user.id
     await update.message.reply_text(f"🆔 Your ID: `{uid}`", parse_mode="Markdown")
 
@@ -58,34 +60,29 @@ async def show_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==============================
 # ADMIN PANEL
 # ==============================
-async def panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def panel(update, context):
     uid = update.effective_user.id
-
     if uid not in ADMINS:
         return await update.message.reply_text("❌ You are not admin.")
 
     keyboard = [
-        [InlineKeyboardButton("📊 Total Users", callback_data="total_users")],
-        [InlineKeyboardButton("📅 Today Joined", callback_data="today_joined")],
-        [InlineKeyboardButton("🟢 Online Users", callback_data="online_users")],
-        [InlineKeyboardButton("📢 Broadcast", callback_data="broadcast_mode")],
-        [InlineKeyboardButton("❌ Delete All Broadcast", callback_data="delete_all")],
+        [InlineKeyboardButton("📊 Total Users", callback_data="total")],
+        [InlineKeyboardButton("📢 Broadcast", callback_data="broadcast")],
+        [InlineKeyboardButton("❌ Delete All Broadcast", callback_data="delete")],
         [InlineKeyboardButton("📨 Forward Broadcast", callback_data="forward")],
-        [InlineKeyboardButton("🚫 Auto Fake Report Block", callback_data="fake_block")],
-        [InlineKeyboardButton("👑 Admin List", callback_data="admin_list")],
     ]
 
     await update.message.reply_text(
-        "🛠 *ADMIN CONTROL PANEL*",
+        "🛠 *ADMIN PANEL*",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="Markdown"
     )
 
 
 # ==============================
-# BUTTON HANDLERS
+# BUTTON HANDLER
 # ==============================
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_handler(update, context):
     q = update.callback_query
     uid = q.from_user.id
     await q.answer()
@@ -93,48 +90,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if uid not in ADMINS:
         return
 
-    # --------------------------
-    # Total Users
-    # --------------------------
-    if q.data == "total_users":
-        await q.edit_message_text(f"📊 Total Users: {len(USERS)}")
+    # Show total users
+    if q.data == "total":
+        return await q.edit_message_text(f"📊 Total Users: {len(USERS)}")
 
-    # --------------------------
-    # Today Joined
-    # --------------------------
-    elif q.data == "today_joined":
-        await q.edit_message_text(f"📅 Today Joined: {len(TODAY)}")
-
-    # --------------------------
-    # Online Users
-    # --------------------------
-    elif q.data == "online_users":
-        await q.edit_message_text(f"🟢 Online Users: {len(ONLINE)}")
-
-    # --------------------------
-    # Broadcast Mode ON
-    # --------------------------
-    elif q.data == "broadcast_mode":
+    # Broadcast mode ON
+    if q.data == "broadcast":
         context.user_data["broadcast"] = True
-        await q.edit_message_text(
-            "📢 *Broadcast Mode ON*\nअब कोई भी message reply/forward करके भेजें → सभी users को पहुँचेगा।",
-            parse_mode="Markdown"
-        )
+        return await q.edit_message_text("📢 Broadcast Mode ON — अब message भेजें।")
 
-    # --------------------------
-    # Forward mode
-    # --------------------------
-    elif q.data == "forward":
-        context.user_data["fwd"] = True
-        await q.edit_message_text(
-            "📨 Forward Mode ON\nForward किया हुआ message सबको भेजा जाएगा।",
-            parse_mode="Markdown"
-        )
+    # Forward broadcast mode
+    if q.data == "forward":
+        context.user_data["forward"] = True
+        return await q.edit_message_text("📨 Forward Mode ON — Forward किया हुआ message सबको जाएगा।")
 
-    # --------------------------
-    # Delete All Broadcast
-    # --------------------------
-    elif q.data == "delete_all":
+    # Delete all broadcast
+    if q.data == "delete":
         deleted = 0
         for user, msg_id in LAST_BROADCAST.items():
             try:
@@ -144,76 +115,54 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
 
         LAST_BROADCAST.clear()
-
-        await q.edit_message_text(f"❌ Deleted Broadcast Messages from {deleted} users.")
-
-    # --------------------------
-    # Show admin list
-    # --------------------------
-    elif q.data == "admin_list":
-        await q.edit_message_text(f"👑 Admins:\n{ADMINS}")
-
-    # --------------------------
-    # fake report mode
-    # --------------------------
-    elif q.data == "fake_block":
-        context.user_data["fake"] = True
-        await q.edit_message_text("🚫 Reply to user ID to remove.")
+        return await q.edit_message_text(f"❌ Deleted {deleted} broadcast messages.")
 
 
 # ==============================
-# BROADCAST HANDLER
+# MESSAGE HANDLER
 # ==============================
-async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
 
-    # --------------------------
-    # Broadcast Mode
-    # --------------------------
+    # ---------- Broadcast System ----------
     if uid in ADMINS and context.user_data.get("broadcast"):
 
-        # send to everyone & save msg_id
+        # Message goes to all users
         for user in USERS:
             try:
-                sent_msg = await update.message.copy(chat_id=user)
-                LAST_BROADCAST[user] = sent_msg.message_id
+                sent = await update.message.copy(chat_id=user)
+                LAST_BROADCAST[user] = sent.message_id
             except:
                 pass
 
         context.user_data["broadcast"] = False
-        await update.message.reply_text("📢 Broadcast Sent Successfully!")
-        return
+        return await update.message.reply_text("📢 Broadcast Sent!")
 
-    # --------------------------
-    # Forward Mode
-    # --------------------------
-    if uid in ADMINS and context.user_data.get("fwd"):
+    # ---------- Forward System ----------
+    if uid in ADMINS and context.user_data.get("forward"):
 
         for user in USERS:
             try:
-                sent_msg = await update.message.forward(chat_id=user)
-                LAST_BROADCAST[user] = sent_msg.message_id
+                sent = await update.message.forward(chat_id=user)
+                LAST_BROADCAST[user] = sent.message_id
             except:
                 pass
 
-        context.user_data["fwd"] = False
-        await update.message.reply_text("📨 Forward Broadcast Sent!")
-        return
+        context.user_data["forward"] = False
+        return await update.message.reply_text("📨 Forward Broadcast Sent!")
 
 
 # ==============================
 # MAIN
 # ==============================
 def main():
-
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("id", show_id))
     app.add_handler(CommandHandler("panel", panel))
-
     app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, message_handler))
+    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, msg_handler))
 
     app.run_polling()
 
