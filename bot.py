@@ -18,7 +18,7 @@ from telegram.ext import (
 
 TOKEN = "7936792037:AAEY8w1SamKAanqZr66Lbfd_DKUK0GUzC18"
 
-# MongoDB connection string (jo tumne diya)
+# MongoDB connection string
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 
@@ -32,7 +32,7 @@ db = client["anjali_bot"]
 users_col = db["users"]
 broadcasts_col = db["broadcasts"]
 
-# Sirf ye log admin hain (tumhara ID)
+# Admin ID
 ADMIN_IDS = {7895892794}
 
 # ================== LOGGING ==================
@@ -51,7 +51,6 @@ def is_admin(user_id: int) -> bool:
 
 
 def upsert_user(telegram_user) -> None:
-    """User ko MongoDB me save / update kare."""
     if telegram_user is None:
         return
 
@@ -65,13 +64,7 @@ def upsert_user(telegram_user) -> None:
     if existing:
         users_col.update_one(
             {"user_id": uid},
-            {
-                "$set": {
-                    "first_name": first_name,
-                    "username": username,
-                    "last_active_at": now,
-                }
-            },
+            {"$set": {"first_name": first_name, "username": username, "last_active_at": now}},
         )
     else:
         users_col.insert_one(
@@ -87,7 +80,6 @@ def upsert_user(telegram_user) -> None:
 
 
 def get_all_active_users():
-    """Jo banned nahi hain, un sab users ki list."""
     cursor = users_col.find({"banned": {"$ne": True}}, {"user_id": 1})
     return [doc["user_id"] for doc in cursor]
 
@@ -131,10 +123,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     upsert_user(user)
 
-    # Normal users ko sirf welcome message
     text = (
         "👋 *Welcome to Anjali Ki Duniya*\n\n"
-        "⏳  जल्द ही आपको यहाँ Best Collection Videos के अपडेट मिलना शुरू हो जाएँगे।"
+        "⏳  Best Collection Videos ke updates yahan milte rahenge!"
     )
 
     await update.message.reply_text(
@@ -150,16 +141,14 @@ async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    if not is_admin(user.id):
+    if not is_admin(update.effective_user.id):
         return
 
     await update.message.reply_text("🛠 *ADMIN PANEL*", parse_mode="Markdown", reply_markup=admin_keyboard)
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    if not is_admin(user.id):
+    if not is_admin(update.effective_user.id):
         return
 
     context.user_data.pop("mode", None)
@@ -167,29 +156,26 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def delete_all_broadcasts(context: ContextTypes.DEFAULT_TYPE) -> int:
-    """MongoDB se sare broadcast messages delete kare (jitna possible ho)."""
     deleted = 0
-    cursor = broadcasts_col.find({})
-    async for_doc = False  # just to keep python happy (not used)
 
-    for doc in cursor:
+    for doc in broadcasts_col.find({}):
         chat_id = doc.get("chat_id")
         msg_id = doc.get("message_id")
+
         if not chat_id or not msg_id:
             continue
+
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
             deleted += 1
         except Exception as e:
-            # Ho sakta hai user ne chat delete kar di ho ya bot ke pass rights na ho
-            log.warning("Delete failed for %s: %s", chat_id, e)
+            log.warning(f"Delete failed for {chat_id}: {e}")
 
     broadcasts_col.delete_many({})
     return deleted
 
 
 async def do_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin ka jo message aaya hai, use sab users ko copy kare."""
     admin_msg = update.message
     user_ids = get_all_active_users()
 
@@ -198,7 +184,6 @@ async def do_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for uid in user_ids:
         try:
-            # admin wale message ko as copy bhej rahe (text/photo/video sab chalega)
             sent = await admin_msg.copy(chat_id=uid)
             broadcasts_col.insert_one(
                 {
@@ -209,7 +194,7 @@ async def do_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             success += 1
         except Exception as e:
-            log.warning("Broadcast fail to %s: %s", uid, e)
+            log.warning(f"Broadcast fail to {uid}: {e}")
             fail += 1
 
     await admin_msg.reply_text(
@@ -219,69 +204,50 @@ async def do_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Sab normal messages yahan aayenge (commands ke alawa)."""
     msg = update.message
     if msg is None:
         return
 
     user = update.effective_user
-    text = msg.text or ""
     upsert_user(user)
+    text = msg.text or ""
 
-    # ---------- Non-admin users ----------
+    # ========== Normal Users ==========
     if not is_admin(user.id):
         lower = text.lower()
+        bad_words = ["spam", "fake", "fraud", "scam", "report"]
 
-        # Fake / spam words detect karo, turant ban
-        bad_words = ["spam", "fake", "fraud", "scam", "report", "fake bot", "scam bot"]
         if any(word in lower for word in bad_words):
             ban_user(user.id)
-            try:
-                await msg.reply_text(
-                    "🚫 Aapko suspicious report/fake message ke karan bot se hata diya gaya hai."
-                )
-            except Exception:
-                pass
-        # Normal user ke message ka reply nahi dena
+            await msg.reply_text("🚫 Aap suspicious activity ki wajah se ban ho gaye.")
         return
 
-    # ---------- Admin logic ----------
+    # ========== Admin Logic ==========
     mode = context.user_data.get("mode")
 
-    # Agar abhi broadcast mode ON hai, to jo bhi message aya use sabko bhej do
     if mode == "broadcast":
         context.user_data.pop("mode", None)
         await do_broadcast(update, context)
         return
 
-    # Agar koi mode nahi to buttons check karo
     if text == "📊 Total Users":
-        total = count_total_users()
-        await msg.reply_text(f"📊 Total Users: *{total}*", parse_mode="Markdown")
+        await msg.reply_text(f"📊 Total Users: *{count_total_users()}*", parse_mode="Markdown")
 
     elif text == "📈 Today Joined":
-        today = count_today_users()
-        await msg.reply_text(f"📈 Aaj join kiye: *{today}*", parse_mode="Markdown")
+        await msg.reply_text(f"📈 Aaj join kiye: *{count_today_users()}*", parse_mode="Markdown")
 
     elif text in ("📢 Broadcast", "📤 Forward Broadcast"):
         context.user_data["mode"] = "broadcast"
         await msg.reply_text(
-            "📢 Jo message sab users ko bhejna hai, ab yahan send / forward karo.\n"
-            "✅ Text, photo, video sab chalega.\n\n"
-            "❌ Cancel karne ke liye /cancel bhejo.",
+            "📢 Jo message sab users ko bhejna hai, yahan send / forward karo.",
             reply_markup=admin_keyboard,
         )
 
     elif text == "❌ Delete All Broadcast":
         deleted = await delete_all_broadcasts(context)
         await msg.reply_text(
-            f"❌ Delete All Broadcast complete.\n🧹 Deleted messages (approx): {deleted}",
-            reply_markup=admin_keyboard,
+            f"🧹 Deleted broadcast messages: {deleted}", reply_markup=admin_keyboard
         )
-
-    else:
-        # Admin ne normally chat kiya ho to ignore (ya log debug ke liye)
-        log.info("Admin %s sent: %s", user.id, text)
 
 
 # ================== MAIN ==================
@@ -290,13 +256,11 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("panel", panel))
     app.add_handler(CommandHandler("id", get_id))
     app.add_handler(CommandHandler("cancel", cancel))
 
-    # Baaki sab messages
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, text_router))
 
     log.info("Bot starting...")
