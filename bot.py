@@ -25,11 +25,23 @@ TOKEN = "8541388990:AAEPBbQhA8jCxA4rlI71gOgOHUWuPS1jVJU"  # <-- yahan apna token
 MONGO_URI = "mongodb+srv://san928811_db_user:7OufFF7Ux8kOBnrO@cluster0.l1kszyc.mongodb.net/?appName=Cluster0"  # <-- yahan apna Mongo URI daalo
 ADMIN_IDS = {7895892794}  # <-- apna admin id
 
-WELCOME_TEXT = (
-    "👋 *Welcome to Anjali Ki Duniya*\n\n"
-    "🔥 यहाँ आपको Daily New Best Collection Videos मिलेंगी!\n"
-    "👇 नीचे दिए गए channels join करें 👇\n"
+# Bot username (used to create start-link that shows big blue START button)
+BOT_USERNAME = "Anjalipyarkiduniya_bot"  # <-- tumhara bot username
+
+# Short instruction (first message) will be bilingual and force user to click the t.me start link
+UNLOCK_TEXT_HINDI_EN = (
+    "👋 *Welcome! / स्वागत हैं!*\n\n"
+    "🔒 हिंदी:\n"
+    "पूरा welcome message देखने और access पाने के लिए नीचे START दबाएँ (या link पर क्लिक करें)।\n\n"
+    "🔒 English:\n"
+    "To unlock the full welcome message and access, please press START below (or click the link).\n\n"
+    "👉 Click this link to open bot and see START button:\n"
+    f"https://t.me/{BOT_USERNAME}?start=start\n\n"
+    "🔔 After pressing START, you will receive the full welcome message and links."
 )
+
+# This is the full welcome (sent only after /start). We'll include Hindi + English + Name - Link format.
+WELCOME_TITLE = "👋 Welcome to Anjali Ki Duniya / Anjali’s World\n\n"
 
 CHANNEL_LINKS = [
     ("🔥 Open Video", "https://t.me/+sBJuAWxsHiIxY2E0"),
@@ -56,6 +68,7 @@ def is_admin(uid: int) -> bool:
 
 
 def upsert_user(u):
+    """Only called when user presses /start — that makes them counted/active."""
     if not u:
         return
     users_col.update_one(
@@ -97,22 +110,42 @@ def count_today() -> int:
         {"joined_at": {"$gte": start, "$lt": end}, "active": True}
     )
 
-# ================== WELCOME MESSAGE ==================
+
+# ================== WELCOME / LINKS BUILDERS ==================
 def build_links_text() -> str:
-    t = "🔗 *Important Links*\n\n"
+    # Name – Link format, no inline buttons
+    t = "🔗 Important Links / महत्वपूर्ण लिंक्स:\n\n"
     for name, link in CHANNEL_LINKS:
-        t += f"• [{name}]({link})\n"
+        t += f"👉 {name} – {link}\n"
     return t
 
 
-async def send_welcome(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
+async def send_full_welcome(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
+    """Send the full bilingual welcome + links (called after /start)."""
     try:
-        await context.bot.send_message(chat_id, WELCOME_TEXT, parse_mode="Markdown")
-        await context.bot.send_message(
-            chat_id, build_links_text(), parse_mode="Markdown"
+        # bilingual intro
+        intro = (
+            "🎉 *Welcome to Anjali Ki Duniya* 🎉\n\n"
+            "🇮🇳 (Hindi)\n"
+            "आपका स्वागत है! अब आप यहाँ सभी Premium Videos, Viral Content और Daily Updates देख पाएंगे।\n\n"
+            "🇬🇧 (English)\n"
+            "Welcome! You can now access all premium videos, viral content, and daily updates.\n\n"
         )
+        await context.bot.send_message(chat_id, intro, parse_mode="Markdown")
+        # links in Name – Link format
+        links_text = build_links_text()
+        await context.bot.send_message(chat_id, links_text)
     except Exception as e:
-        log.warning(f"Welcome send failed to {chat_id}: {e}")
+        log.warning(f"Full welcome send failed to {chat_id}: {e}")
+
+
+async def send_unlock_message(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
+    """Send the initial bilingual unlock message instructing user to press START."""
+    try:
+        await context.bot.send_message(chat_id, UNLOCK_TEXT_HINDI_EN, parse_mode="Markdown")
+    except Exception as e:
+        log.warning(f"Unlock message failed to {chat_id}: {e}")
+
 
 # ================== BACKGROUND BROADCAST ==================
 async def run_broadcast(
@@ -148,6 +181,7 @@ async def run_broadcast(
         f"📢 Broadcast Completed!\n✔ Sent: {sent}\n❌ Failed: {fail}"
     )
 
+
 # ================== ADMIN KEYBOARD ==================
 admin_keyboard = ReplyKeyboardMarkup(
     [
@@ -161,9 +195,14 @@ admin_keyboard = ReplyKeyboardMarkup(
 
 # ================== COMMANDS ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    upsert_user(update.effective_user)
-    cid = update.effective_user.id
-    await send_welcome(cid, context)
+    """
+    User pressed /start — this is the ONLY action that registers them as a member.
+    After this we'll send the full welcome + links.
+    """
+    user = update.effective_user
+    upsert_user(user)  # only now we save them (count + broadcast target)
+    cid = user.id
+    await send_full_welcome(cid, context)
 
 
 async def panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -183,10 +222,16 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# ================== JOIN REQUEST HANDLER ==================
 async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    When someone requests to join the channel/group:
+    - Approve the request
+    - DO NOT register them in DB
+    - Send only the bilingual unlock message that instructs them to press START
+    """
     req = update.chat_join_request
     u = req.from_user
-    upsert_user(u)
 
     try:
         await req.approve()
@@ -194,9 +239,11 @@ async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
         log.warning(f"Join approve failed for {u.id}: {e}")
         return
 
-    await send_welcome(u.id, context)
+    # Do NOT upsert_user(u) here — we only register on /start
+    await send_unlock_message(u.id, context)
 
 
+# ================== ADMIN ACTIONS ==================
 async def delete_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
@@ -221,6 +268,7 @@ async def delete_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🧹 Deleted: {deleted}", reply_markup=admin_keyboard
     )
 
+
 # ================== MAIN TEXT ROUTER ==================
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
@@ -229,9 +277,18 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user
     text = msg.text or ""
-    upsert_user(user)
 
-    # --------- Non-admin ignore ---------
+    # Note: we do NOT upsert on random messages — only on /start
+    # But keep last_active for users who are already registered
+    try:
+        users_col.update_one(
+            {"user_id": user.id, "active": True},
+            {"$set": {"last_active": datetime.utcnow()}},
+        )
+    except Exception:
+        pass
+
+    # --------- Non-admin ignore (admin-only commands) ---------
     if not is_admin(user.id):
         return
 
@@ -288,6 +345,7 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "❌ Cancel":
         await cancel(update, context)
+
 
 # ================== RUN BOT ==================
 if __name__ == "__main__":
