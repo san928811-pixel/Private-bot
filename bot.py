@@ -21,27 +21,26 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 
 # ================== CONFIG ==================
-TOKEN = "8541388990:AAEPBbQhA8jCxA4rlI71gOgOHUWuPS1jVJU"  # <-- yahan apna token daalo
-MONGO_URI = "mongodb+srv://san928811_db_user:7OufFF7Ux8kOBnrO@cluster0.l1kszyc.mongodb.net/?appName=Cluster0"  # <-- yahan apna Mongo URI daalo
-ADMIN_IDS = {7895892794}  # <-- apna admin id
+TOKEN = "8541388990:AAEPBbQhA8jCxA4rlI71gOgOHUWuPS1jVJU"
+MONGO_URI = "mongodb+srv://san928811_db_user:7OufFF7Ux8kOBnrO@cluster0.l1kszyc.mongodb.net/?appName=Cluster0"
+ADMIN_IDS = {7895892794}
 
-# Bot username (used to create start-link that shows big blue START button)
-BOT_USERNAME = "Anjalipyarkiduniya_bot"  # <-- tumhara bot username
-
-# Short instruction (first message) will be bilingual and force user to click the t.me start link
+# ------------- SMALL UNLOCK MESSAGE (Sent immediately after join approve) -------------
 UNLOCK_TEXT_HINDI_EN = (
-    "👋 *Welcome! / स्वागत हैं!*\n\n"
-    "🔒 हिंदी:\n"
-    "पूरा welcome message देखने और access पाने के लिए नीचे START दबाएँ (या link पर क्लिक करें)।\n\n"
-    "🔒 English:\n"
-    "To unlock the full welcome message and access, please press START below (or click the link).\n\n"
-    "👉 Click this link to open bot and see START button:\n"
-    f"https://t.me/{BOT_USERNAME}?start=start\n\n"
-    "🔔 After pressing START, you will receive the full welcome message and links."
+    "🔓 *Unlock Access Required*\n\n"
+    "👇 नीचे दिए गए Start बटन को दबाए बिना आगे कुछ नहीं दिखेगा।\n"
+    "▶️ कृपया तुरंत *START* दबाएँ!\n\n"
+    "**English:**\n"
+    "To unlock full access, press the *START* button below.\n"
+    "Tap START to continue 👇"
 )
 
-# This is the full welcome (sent only after /start). We'll include Hindi + English + Name - Link format.
-WELCOME_TITLE = "👋 Welcome to Anjali Ki Duniya / Anjali’s World\n\n"
+# ------------- MAIN WELCOME MESSAGE AFTER START -------------
+WELCOME_TEXT = (
+    "👋 *Welcome to Anjali Ki Duniya*\n\n"
+    "🔥 यहाँ आपको Daily New Best Collection Videos मिलेंगी!\n"
+    "👇 नीचे दिए गए channels join करें 👇\n"
+)
 
 CHANNEL_LINKS = [
     ("🔥 Open Video", "https://t.me/+sBJuAWxsHiIxY2E0"),
@@ -68,7 +67,7 @@ def is_admin(uid: int) -> bool:
 
 
 def upsert_user(u):
-    """Only called when user presses /start — that makes them counted/active."""
+    """START दबाने पर ही user active + joined माना जाएगा"""
     if not u:
         return
     users_col.update_one(
@@ -110,106 +109,70 @@ def count_today() -> int:
         {"joined_at": {"$gte": start, "$lt": end}, "active": True}
     )
 
-
-# ================== WELCOME / LINKS BUILDERS ==================
+# ================== WELCOME MESSAGE ==================
 def build_links_text() -> str:
-    # Name – Link format, no inline buttons
-    t = "🔗 Important Links / महत्वपूर्ण लिंक्स:\n\n"
+    t = "🔗 *Important Links*\n\n"
     for name, link in CHANNEL_LINKS:
-        t += f"👉 {name} – {link}\n"
+        t += f"• [{name}]({link})\n"
     return t
 
 
 async def send_full_welcome(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
-    """Send the full bilingual welcome + links (called after /start)."""
+    """START दबाने के बाद वाला असली welcome"""
     try:
-        # bilingual intro
-        intro = (
-            "🎉 *Welcome to Anjali Ki Duniya* 🎉\n\n"
-            "🇮🇳 (Hindi)\n"
-            "आपका स्वागत है! अब आप यहाँ सभी Premium Videos, Viral Content और Daily Updates देख पाएंगे।\n\n"
-            "🇬🇧 (English)\n"
-            "Welcome! You can now access all premium videos, viral content, and daily updates.\n\n"
+        await context.bot.send_message(chat_id, WELCOME_TEXT, parse_mode="Markdown")
+        await context.bot.send_message(chat_id, build_links_text(), parse_mode="Markdown")
+    except Exception as e:
+        log.warning(f"Full welcome failed: {e}")
+
+# ================== JOIN REQUEST HANDLER ==================
+async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Join request approve + छोटा unlock message भेजना"""
+    req = update.chat_join_request
+    user = req.from_user
+
+    # Approve request
+    try:
+        await req.approve()
+    except Exception as e:
+        log.warning(f"Join approve failed for {user.id}: {e}")
+        return
+
+    # Send small unlock message (START दबाने के लिए)
+    try:
+        await context.bot.send_message(
+            chat_id=user.id,
+            text=UNLOCK_TEXT_HINDI_EN,
+            parse_mode="Markdown"
         )
-        await context.bot.send_message(chat_id, intro, parse_mode="Markdown")
-        # links in Name – Link format
-        links_text = build_links_text()
-        await context.bot.send_message(chat_id, links_text)
+        log.info(f"Unlock sent to {user.id}")
     except Exception as e:
-        log.warning(f"Full welcome send failed to {chat_id}: {e}")
+        log.warning(f"Cannot send unlock message: {e}")
 
-
-async def send_unlock_message(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
-    """Send the initial bilingual unlock message instructing user to press START."""
-    try:
-        await context.bot.send_message(chat_id, UNLOCK_TEXT_HINDI_EN, parse_mode="Markdown")
-    except Exception as e:
-        log.warning(f"Unlock message failed to {chat_id}: {e}")
-
-
-# ================== BACKGROUND BROADCAST ==================
-async def run_broadcast(
-    context: ContextTypes.DEFAULT_TYPE,
-    users: list[int],
-    msgs: list,
-    reply_msg,
-):
-    sent = 0
-    fail = 0
-
-    for uid in users:
-        try:
-            for m in msgs:
-                sent_msg = await m.copy(chat_id=uid)
-                # store for Delete All
-                broadcasts_col.insert_one(
-                    {
-                        "chat_id": uid,
-                        "message_id": sent_msg.message_id,
-                        "created_at": datetime.utcnow(),
-                    }
-                )
-            sent += 1
-        except Exception as e:
-            fail += 1
-            mark_inactive(uid)
-            log.warning(f"Broadcast failed for {uid}: {e}")
-
-        await asyncio.sleep(0.05)
-
-    await reply_msg.reply_text(
-        f"📢 Broadcast Completed!\n✔ Sent: {sent}\n❌ Failed: {fail}"
-    )
-
-
-# ================== ADMIN KEYBOARD ==================
-admin_keyboard = ReplyKeyboardMarkup(
-    [
-        ["📊 Active Users", "📈 Today Joined"],
-        ["👥 Total Users"],
-        ["📢 Broadcast", "📤 Forward Broadcast"],
-        ["🧹 Delete All", "❌ Cancel"],
-    ],
-    resize_keyboard=True,
-)
-
-# ================== COMMANDS ==================
+# ================== COMMAND HANDLERS ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    User pressed /start — this is the ONLY action that registers them as a member.
-    After this we'll send the full welcome + links.
-    """
-    user = update.effective_user
-    upsert_user(user)  # only now we save them (count + broadcast target)
-    cid = user.id
+    """User ने START दबाया — अब असली welcome + DB add"""
+    upsert_user(update.effective_user)
+    cid = update.effective_user.id
     await send_full_welcome(cid, context)
 
 
 async def panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
+
     await update.message.reply_text(
-        "🛠 *ADMIN PANEL*", parse_mode="Markdown", reply_markup=admin_keyboard
+        "🛠 *ADMIN PANEL*",
+        parse_mode="Markdown",
+        reply_markup=ReplyKeyboardMarkup(
+            [
+                ["📊 Active Users", "📈 Today Joined"],
+                ["👥 Total Users"],
+                ["📢 Broadcast", "📤 Forward Broadcast"],
+                ["🧹 Delete All", "❌ Cancel"],
+            ],
+            resize_keyboard=True,
+        ),
     )
 
 
@@ -217,59 +180,50 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
     context.user_data.clear()
-    await update.message.reply_text(
-        "❌ Broadcast Mode OFF", reply_markup=admin_keyboard
-    )
+    await update.message.reply_text("❌ Broadcast Mode OFF")
 
-
-# ================== JOIN REQUEST HANDLER ==================
-async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    When someone requests to join the channel/group:
-    - Approve the request
-    - DO NOT register them in DB
-    - Send only the bilingual unlock message that instructs them to press START
-    """
-    req = update.chat_join_request
-    u = req.from_user
-
-    try:
-        await req.approve()
-    except Exception as e:
-        log.warning(f"Join approve failed for {u.id}: {e}")
-        return
-
-    # Do NOT upsert_user(u) here — we only register on /start
-    await send_unlock_message(u.id, context)
-
-
-# ================== ADMIN ACTIONS ==================
+# ================== DELETE ALL BROADCAST ==================
 async def delete_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
 
     deleted = 0
     cursor = broadcasts_col.find({})
-    async_bot = context.bot
+    bot = context.bot
 
     for doc in cursor:
-        chat_id = doc.get("chat_id")
-        msg_id = doc.get("message_id")
-        if not chat_id or not msg_id:
-            continue
         try:
-            await async_bot.delete_message(chat_id=chat_id, message_id=msg_id)
+            await bot.delete_message(doc["chat_id"], doc["message_id"])
             deleted += 1
-        except Exception as e:
-            log.warning(f"Delete failed: {e}")
+        except:
+            pass
 
     broadcasts_col.delete_many({})
-    await update.message.reply_text(
-        f"🧹 Deleted: {deleted}", reply_markup=admin_keyboard
-    )
+    await update.message.reply_text(f"🧹 Deleted: {deleted}")
 
+# ================== BROADCAST SYSTEM ==================
+async def run_broadcast(context: ContextTypes.DEFAULT_TYPE, users, msgs, reply_msg):
+    sent = 0
+    fail = 0
 
-# ================== MAIN TEXT ROUTER ==================
+    for uid in users:
+        try:
+            for m in msgs:
+                msg_obj = await m.copy(chat_id=uid)
+                broadcasts_col.insert_one({
+                    "chat_id": uid,
+                    "message_id": msg_obj.message_id,
+                })
+            sent += 1
+        except Exception:
+            fail += 1
+            mark_inactive(uid)
+
+        await asyncio.sleep(0.05)
+
+    await reply_msg.reply_text(f"✔ Sent: {sent}\n❌ Failed: {fail}")
+
+# ================== MAIN ROUTER ==================
 async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg:
@@ -278,83 +232,55 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = msg.text or ""
 
-    # Note: we do NOT upsert on random messages — only on /start
-    # But keep last_active for users who are already registered
-    try:
-        users_col.update_one(
-            {"user_id": user.id, "active": True},
-            {"$set": {"last_active": datetime.utcnow()}},
-        )
-    except Exception:
-        pass
+    # --- Only admin controls ---
+    if is_admin(user.id):
 
-    # --------- Non-admin ignore (admin-only commands) ---------
-    if not is_admin(user.id):
-        return
+        mode = context.user_data.get("mode")
 
-    # --------- Broadcast Mode ---------
-    mode = context.user_data.get("mode")
-    if mode == "broadcast":
-        msgs = context.user_data["msgs"]
+        # Broadcast mode
+        if mode == "broadcast":
+            msgs = context.user_data["msgs"]
 
-        if text.lower() == "done":
-            users = get_active_users()
-            await msg.reply_text("📢 Broadcasting started…")
+            if text.lower() == "done":
+                users = get_active_users()
+                await msg.reply_text("📢 Broadcasting…")
+                asyncio.create_task(run_broadcast(context, users, msgs, msg))
+                context.user_data.clear()
+                return
 
-            asyncio.create_task(run_broadcast(context, users, msgs, msg))
-
-            context.user_data.clear()
+            msgs.append(msg)
+            await msg.reply_text(f"Saved ({len(msgs)}) — type DONE when complete")
             return
 
-        if len(msgs) < BROADCAST_LIMIT:
-            msgs.append(msg)
-            await msg.reply_text(
-                f"📩 Message saved ({len(msgs)})\nType DONE when finished."
-            )
-        else:
-            await msg.reply_text(
-                "❗ Limit reached (10 messages). Type DONE to start broadcast."
-            )
-        return
+        # Admin menu
+        if text == "📊 Active Users":
+            await msg.reply_text(f"Active: {count_active()}")
 
-    # --------- Admin Menu ---------
-    if text in ("📢 Broadcast", "📤 Forward Broadcast"):
-        context.user_data["mode"] = "broadcast"
-        context.user_data["msgs"] = []
-        await msg.reply_text(
-            "📢 Broadcast Mode ON\n"
-            "🔹 Ab jitne bhi messages / photos / videos bhejoge\n"
-            "🔹 Sab active users ko jayenge.\n\n"
-            "✅ Jab complete ho jaye to `DONE` type karo.",
-            parse_mode="Markdown",
-            reply_markup=admin_keyboard,
-        )
-        return
+        elif text == "📈 Today Joined":
+            await msg.reply_text(f"Today: {count_today()}")
 
-    if text == "📊 Active Users":
-        await msg.reply_text(f"👥 Active Users: {count_active()}")
+        elif text == "👥 Total Users":
+            await msg.reply_text(f"Total: {count_total()}")
 
-    elif text == "📈 Today Joined":
-        await msg.reply_text(f"📆 Today Joined: {count_today()}")
+        elif text in ("📢 Broadcast", "📤 Forward Broadcast"):
+            context.user_data["mode"] = "broadcast"
+            context.user_data["msgs"] = []
+            await msg.reply_text("Broadcast Mode ON — send msgs, type DONE when finished")
 
-    elif text == "👥 Total Users":
-        await msg.reply_text(f"📌 Total Users: {count_total()}")
+        elif text == "🧹 Delete All":
+            await delete_all(update, context)
 
-    elif text == "🧹 Delete All":
-        await delete_all(update, context)
-
-    elif text == "❌ Cancel":
-        await cancel(update, context)
-
+        elif text == "❌ Cancel":
+            await cancel(update, context)
 
 # ================== RUN BOT ==================
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
 
+    app.add_handler(ChatJoinRequestHandler(join_request))
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("panel", panel))
     app.add_handler(CommandHandler("cancel", cancel))
-    app.add_handler(ChatJoinRequestHandler(join_request))
 
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, text_router))
 
