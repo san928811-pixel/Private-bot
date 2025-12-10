@@ -1,0 +1,14 @@
+{
+  "name": "vip-premium-bot",
+  "version": "1.0.0",
+  "main": "bot.js",
+  "engines": {
+    "node": "18.x"
+  },
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.15.3"
+  }
+}
