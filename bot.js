@@ -3,7 +3,7 @@ const { Telegraf, Markup } = require("telegraf");
 // =========================
 // BOT TOKEN (यहीं अपना token डालना है)
 // =========================
-const BOT_TOKEN = "8563001384:AAGm-bHjgj8uydURUfv_TISDrrrHFFmerL0";   // <-- यहाँ सिर्फ अपना पूरा BotFather token डालना
+const BOT_TOKEN = "8563001384:AAGm-bHjgj8uydURUfv_TISDrrrHFFmerL0";   // <-- यहाँ अपना पूरा BotFather token डालना
 const bot = new Telegraf(BOT_TOKEN);
 
 // =========================
@@ -42,7 +42,7 @@ bot.start((ctx) =>
 4️⃣ Combo — ₹1599 | 40 USDT  
 5️⃣ Ultra Max — ₹1999 | 60 USDT
 
-👇 नीचे से अपना plan चुनें:
+👇 नीचे से अपना प्लान चुनें:
 `,
     plansMenu
   )
@@ -107,15 +107,21 @@ bot.action("combo", (ctx) => sendPlan(ctx, "Combo Plan (Lifetime)", 1599, 40));
 bot.action("ultra", (ctx) => sendPlan(ctx, "Ultra Max (Lifetime)", 1999, 60));
 
 // =========================
-// COPY BUTTONS
+// EASY COPY BUTTONS
 // =========================
-bot.action("copy_upi", (ctx) =>
-  ctx.reply("📋 Copied UPI:\n78753256788@kotak")
-);
+bot.action("copy_upi", (ctx) => {
+  ctx.reply(
+    "📋 *UPI ID (Long-press करके कॉपी करें)*\n`78753256788@kotak`",
+    { parse_mode: "Markdown" }
+  );
+});
 
-bot.action("copy_usdt", (ctx) =>
-  ctx.reply("🌍 Copied USDT (TRC20):\nTxxxxxxxxxxxxxxxxxxxxx")
-);
+bot.action("copy_usdt", (ctx) => {
+  ctx.reply(
+    "🌍 *USDT (TRC20) Address*\n`Txxxxxxxxxxxxxxxxxxxxx`",
+    { parse_mode: "Markdown" }
+  );
+});
 
 // =========================
 // BACK BUTTON
