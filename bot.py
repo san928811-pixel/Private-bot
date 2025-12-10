@@ -3,7 +3,7 @@ const { Telegraf, Markup } = require("telegraf");
 // =========================
 // BOT TOKEN (यहाँ ONLY Token डालना है)
 // =========================
-const BOT_TOKEN = "8563001384:AAFMnKr0Yi-c5nCjm_qod9lx6IxNWCdd1k4";   // ← यहाँ अपने BotFather का token डालो
+const BOT_TOKEN = "8563001384:AAHbHgkGyjpka3o_sTPJzgp7l_Vh8esEpLg";   // ← यहाँ अपने BotFather का token डालो
 const bot = new Telegraf(BOT_TOKEN);
 
 // =========================
