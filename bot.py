@@ -1,9 +1,14 @@
 const { Telegraf, Markup } = require("telegraf");
 
-const BOT_TOKEN = "8563001384:AAFMnKr0Yi-c5nCjm_qod9lx6IxNWCdd1k4"; // ← अपना Bot Token डालें
+// =========================
+// BOT TOKEN (यहाँ ONLY Token डालना है)
+// =========================
+const BOT_TOKEN = "8563001384:AAFMnKr0Yi-c5nCjm_qod9lx6IxNWCdd1k4";   // ← यहाँ अपने BotFather का token डालो
 const bot = new Telegraf(BOT_TOKEN);
 
+// =========================
 // ADMIN USERNAME
+// =========================
 const ADMIN = "@Shwetakumari89";
 
 // =========================
@@ -46,7 +51,7 @@ bot.start((ctx) =>
 );
 
 // =============================
-// PAYMENT PAGE FUNCTION
+// PAYMENT PAGE
 // =============================
 function sendPlan(ctx, title, inr, usdt) {
   ctx.reply(
@@ -64,26 +69,25 @@ UPI ID: **78753256788@kotak**
 👉 नीचे दिए गए बटन से UPI कॉपी करें।
 
 🌍 **INTERNATIONAL PAYMENT**
-Use any of the following:
+Use:
 ✔ LiPay  
 ✔ PaySend  
 ✔ Remitly  
 ✔ USDT (TRC20)
 
-USDT Address (TRC20):
+USDT Address:
 **Txxxxxxxxxxxxxxxxxxxxx**  
 👉 नीचे दिए गए बटन से USDT address कॉपी करें।
 
 -----------------------------------------
-📌 **IMPORTANT (Hindi + English)**
+📌 **IMPORTANT — हिन्दी + English**
 
 📤 Payment करने के बाद:  
 1️⃣ Screenshot + अपना Telegram username  
-👉 **${ADMIN}** को भेजें।  
+👉 **${ADMIN}** को भेजें।
 
-📝 *Your payment will be manually verified. After verification, you will receive your premium access link.*
-
-⏳ *Manual verification time: 1–10 minutes*
+📝 *Payment manually verify होने के बाद आपको premium link दे दी जाएगी।*
+⏳ *Verification time: 1–10 minutes*
 `,
     Markup.inlineKeyboard([
       [Markup.button.callback("📋 Copy UPI", "copy_upi")],
@@ -95,7 +99,7 @@ USDT Address (TRC20):
 }
 
 // =============================
-// PLAN ACTIONS
+// PLAN BUTTONS
 // =============================
 bot.action("basic", (ctx) => sendPlan(ctx, "Basic Plan (1 Month)", 299, 15));
 bot.action("advanced", (ctx) => sendPlan(ctx, "Advanced Plan (Lifetime)", 499, 20));
@@ -104,7 +108,7 @@ bot.action("combo", (ctx) => sendPlan(ctx, "Combo Plan (Lifetime)", 1599, 40));
 bot.action("ultra", (ctx) => sendPlan(ctx, "Ultra Max Plan (Lifetime)", 1999, 60));
 
 // =============================
-// COPY BUTTONS
+// COPY BUTTON RESPONSES
 // =============================
 bot.action("copy_upi", (ctx) =>
   ctx.reply("📋 **Copied UPI ID:**\n78753256788@kotak")
@@ -115,14 +119,14 @@ bot.action("copy_usdt", (ctx) =>
 );
 
 // =============================
-// BACK TO PLANS
+// BACK BUTTON
 // =============================
 bot.action("back", (ctx) =>
   ctx.reply("⬅ Back to Plans", plansMenu)
 );
 
 // =============================
-// RUN BOT
+// RUN
 // =============================
 bot.launch();
 console.log("🚀 VIP Premium Bot Running…");
