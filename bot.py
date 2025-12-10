@@ -1,9 +1,10 @@
 const { Telegraf, Markup } = require("telegraf");
 
 // =========================
-// BOT TOKEN (यहाँ ONLY Token डालना है)
+// BOT TOKEN (यहीं ONLY Token डालना है)
+// कोई comment, hindi, arrow, कुछ भी मत जोड़ना!
 // =========================
-const BOT_TOKEN = "8563001384:AAHbHgkGyjpka3o_sTPJzgp7l_Vh8esEpLg";   // ← यहाँ अपने BotFather का token डालो
+const BOT_TOKEN = "8563001384:AAGm-bHjgj8uydURUfv_TISDrrrHFFmerL0" ;
 const bot = new Telegraf(BOT_TOKEN);
 
 // =========================
@@ -65,8 +66,7 @@ function sendPlan(ctx, title, inr, usdt) {
 💳 **PAYMENT OPTIONS**
 
 🇮🇳 **INDIA (UPI Payment)**
-UPI ID: **78753256788@kotak**  
-👉 नीचे दिए गए बटन से UPI कॉपी करें।
+UPI ID: **78753256788@kotak**
 
 🌍 **INTERNATIONAL PAYMENT**
 Use:
@@ -76,8 +76,7 @@ Use:
 ✔ USDT (TRC20)
 
 USDT Address:
-**Txxxxxxxxxxxxxxxxxxxxx**  
-👉 नीचे दिए गए बटन से USDT address कॉपी करें।
+**Txxxxxxxxxxxxxxxxxxxxx**
 
 -----------------------------------------
 📌 **IMPORTANT — हिन्दी + English**
@@ -105,7 +104,7 @@ bot.action("basic", (ctx) => sendPlan(ctx, "Basic Plan (1 Month)", 299, 15));
 bot.action("advanced", (ctx) => sendPlan(ctx, "Advanced Plan (Lifetime)", 499, 20));
 bot.action("pro", (ctx) => sendPlan(ctx, "Pro Plan (Lifetime)", 999, 30));
 bot.action("combo", (ctx) => sendPlan(ctx, "Combo Plan (Lifetime)", 1599, 40));
-bot.action("ultra", (ctx) => sendPlan(ctx, "Ultra Max Plan (Lifetime)", 1999, 60));
+bot.action("ultra", (ctx) => sendPlan(ctx, "Ultra Max (Lifetime)", 1999, 60));
 
 // =============================
 // COPY BUTTON RESPONSES
