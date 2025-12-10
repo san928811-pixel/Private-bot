@@ -1,263 +1,128 @@
-# ================== IMPORTS ==================
-import logging
-import asyncio
-from datetime import datetime, timedelta
+const { Telegraf, Markup } = require("telegraf");
 
-from telegram import (
-    Update,
-    ReplyKeyboardMarkup,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-)
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-    ChatJoinRequestHandler,
-)
+const BOT_TOKEN = "8563001384:AAFMnKr0Yi-c5nCjm_qod9lx6IxNWCdd1k4"; // ← अपना Bot Token डालें
+const bot = new Telegraf(BOT_TOKEN);
 
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
+// ADMIN USERNAME
+const ADMIN = "@Shwetakumari89";
 
-# ================== CONFIG ==================
-TOKEN = "8541388990:AAEPBbQhA8jCxA4rlI71gOgOHUWuPS1jVJU"  
-MONGO_URI = "mongodb+srv://san928811_db_user:7OufFF7Ux8kOBnrO@cluster0.l1kszyc.mongodb.net/?appName=Cluster0"
-ADMIN_IDS = {7895892794}
+// =========================
+// ALL PLANS MENU (₹ + USDT)
+// =========================
+const plansMenu = Markup.inlineKeyboard([
+  [Markup.button.callback("1️⃣ Basic – ₹299 | 15 USDT", "basic")],
+  [Markup.button.callback("2️⃣ Advanced – ₹499 | 20 USDT", "advanced")],
+  [Markup.button.callback("3️⃣ Pro – ₹999 | 30 USDT", "pro")],
+  [Markup.button.callback("4️⃣ Combo – ₹1599 | 40 USDT", "combo")],
+  [Markup.button.callback("5️⃣ Ultra Max – ₹1999 | 60 USDT", "ultra")],
+]);
 
-# 🔥 ONLY CHANGE YOU WANTED — DONE 🔥
-BOT_USERNAME = "FastestAutoRequestBot"      # <-- FINAL USERNAME SET
+// =========================
+// START MESSAGE
+// =========================
+bot.start((ctx) =>
+  ctx.reply(
+`👋 Welcome to **VIP Premium Membership Bot**
 
-BROADCAST_LIMIT = 10
+💎 यहाँ आपको मिलते हैं:
+• Premium Membership Plans  
+• Fast Activation  
+• Secure Payment  
+• 24×7 Support
 
-# ================== DB ==================
-client = MongoClient(MONGO_URI, server_api=ServerApi("1"))
-db = client["anjali_bot"]
-users_col = db["users"]
-broadcasts_col = db["broadcasts"]
+-----------------------------------------
+⭐ **Plans (India + International)** ⭐
 
-# ================== LOGGING ==================
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+1️⃣ Basic — ₹299 | 15 USDT  
+2️⃣ Advanced — ₹499 | 20 USDT  
+3️⃣ Pro — ₹999 | 30 USDT  
+4️⃣ Combo — ₹1599 | 40 USDT  
+5️⃣ Ultra Max — ₹1999 | 60 USDT
 
-# ================== CONTENT ==================
-WELCOME_TEXT = (
-    "👋 *Welcome to Anjali Ki Duniya*\n\n"
-    "🔥 यहाँ आपको Daily New Best Collection Videos मिलेंगी!\n"
-    "👇 नीचे दिए गए channels join करें 👇\n"
-)
+👇 नीचे से अपना plan चुनें:
+`,
+    plansMenu
+  )
+);
 
-CHANNEL_LINKS = [
-    ("🔥 Open Video", "https://t.me/+sBJuAWxsHiIxY2E0"),
-    ("💙 Instagram Collection", "https://t.me/+H_ExJVtnFuMxMzQ0"),
-    ("⚡ All Viral Hub", "https://t.me/+oM9_I2afhqUzOTE0"),
-    ("🎬 Full Open Video AB", "https://t.me/+4RLmy0Z3rCBhYWZk"),
-]
+// =============================
+// PAYMENT PAGE FUNCTION
+// =============================
+function sendPlan(ctx, title, inr, usdt) {
+  ctx.reply(
+`🔷 **Selected Plan:** ${title}
 
-# Small unlock message with START button
-UNLOCK_TEXT = (
-    "🔓 *Unlock Access Required*\n\n"
-    "👇 नीचे दिए गए *START* बटन को दबाए बिना आगे कुछ भी दिखाई नहीं देगा।\n"
-    "➡️ कृपया तुरंत *START* दबाएँ!\n\n"
-    "⭐ शुरू करने के लिए तीन जगह START दिया है:\n"
-    "1️⃣ START दबाएँ\n"
-    "2️⃣ START now\n"
-    "3️⃣ Please tap START\n\n"
-    "*English: Press START NOW to unlock access.*\n"
-)
+💰 **Price / कीमत:**  
+🇮🇳 India: ₹${inr}  
+🌍 International: ${usdt} USDT
 
-# ================== HELPERS ==================
-def is_admin(uid: int) -> bool:
-    return uid in ADMIN_IDS
+-----------------------------------------
+💳 **PAYMENT OPTIONS**
 
-def upsert_user(user):
-    if not user:
-        return
-    now = datetime.utcnow()
-    users_col.update_one(
-        {"user_id": user.id},
-        {
-            "$set": {
-                "first_name": getattr(user, "first_name", ""),
-                "username": getattr(user, "username", ""),
-                "active": True,
-                "last_active": now,
-            },
-            "$setOnInsert": {"joined_at": now},
-        },
-        upsert=True,
-    )
+🇮🇳 **INDIA (UPI Payment)**
+UPI ID: **78753256788@kotak**  
+👉 नीचे दिए गए बटन से UPI कॉपी करें।
 
-def mark_inactive(uid: int):
-    users_col.update_one({"user_id": uid}, {"$set": {"active": False}})
+🌍 **INTERNATIONAL PAYMENT**
+Use any of the following:
+✔ LiPay  
+✔ PaySend  
+✔ Remitly  
+✔ USDT (TRC20)
 
-def get_active_users():
-    return [d["user_id"] for d in users_col.find({"active": True}, {"user_id": 1})]
+USDT Address (TRC20):
+**Txxxxxxxxxxxxxxxxxxxxx**  
+👉 नीचे दिए गए बटन से USDT address कॉपी करें।
 
-def count_active():
-    return users_col.count_documents({"active": True})
+-----------------------------------------
+📌 **IMPORTANT (Hindi + English)**
 
-def count_total():
-    return users_col.count_documents({})
+📤 Payment करने के बाद:  
+1️⃣ Screenshot + अपना Telegram username  
+👉 **${ADMIN}** को भेजें।  
 
-def count_today():
-    today = datetime.utcnow().date()
-    start = datetime(today.year, today.month, today.day)
-    end = start + timedelta(days=1)
-    return users_col.count_documents({"joined_at": {"$gte": start, "$lt": end}, "active": True})
+📝 *Your payment will be manually verified. After verification, you will receive your premium access link.*
 
-# ================== MESSAGES ==================
-def build_links_text():
-    txt = "🔗 *Important Links*\n\n"
-    for name, link in CHANNEL_LINKS:
-        txt += f"• {name} – {link}\n"
-    return txt
+⏳ *Manual verification time: 1–10 minutes*
+`,
+    Markup.inlineKeyboard([
+      [Markup.button.callback("📋 Copy UPI", "copy_upi")],
+      [Markup.button.callback("🌎 Copy USDT Address", "copy_usdt")],
+      [Markup.button.url("✔ I Paid — Send Screenshot", `https://t.me/${ADMIN.replace("@", "")}`)],
+      [Markup.button.callback("🔙 Back to Plans", "back")],
+    ])
+  );
+}
 
-def build_start_keyboard():
-    url = f"https://t.me/{BOT_USERNAME}?start=start"
-    return InlineKeyboardMarkup([[InlineKeyboardButton("▶️ START NOW", url=url)]])
+// =============================
+// PLAN ACTIONS
+// =============================
+bot.action("basic", (ctx) => sendPlan(ctx, "Basic Plan (1 Month)", 299, 15));
+bot.action("advanced", (ctx) => sendPlan(ctx, "Advanced Plan (Lifetime)", 499, 20));
+bot.action("pro", (ctx) => sendPlan(ctx, "Pro Plan (Lifetime)", 999, 30));
+bot.action("combo", (ctx) => sendPlan(ctx, "Combo Plan (Lifetime)", 1599, 40));
+bot.action("ultra", (ctx) => sendPlan(ctx, "Ultra Max Plan (Lifetime)", 1999, 60));
 
-async def send_full_welcome(chat_id, context):
-    await context.bot.send_message(chat_id, WELCOME_TEXT, parse_mode="Markdown")
-    await context.bot.send_message(chat_id, build_links_text(), parse_mode="Markdown")
+// =============================
+// COPY BUTTONS
+// =============================
+bot.action("copy_upi", (ctx) =>
+  ctx.reply("📋 **Copied UPI ID:**\n78753256788@kotak")
+);
 
-# ================== BROADCAST WORKER ==================
-async def run_broadcast(context, users, msgs, reply_msg):
-    sent = 0
-    failed = 0
-    for uid in users:
-        try:
-            for m in msgs:
-                sent_msg = await m.copy(chat_id=uid)
-                broadcasts_col.insert_one(
-                    {"chat_id": uid, "message_id": sent_msg.message_id, "created_at": datetime.utcnow()}
-                )
-            sent += 1
-        except Exception:
-            failed += 1
-            mark_inactive(uid)
-        await asyncio.sleep(0.05)
+bot.action("copy_usdt", (ctx) =>
+  ctx.reply("🌍 **Copied USDT (TRC20) Address:**\nTxxxxxxxxxxxxxxxxxxxxx")
+);
 
-    await reply_msg.reply_text(f"📢 Broadcast Completed!\n✔ Sent: {sent}\n❌ Failed: {failed}")
+// =============================
+// BACK TO PLANS
+// =============================
+bot.action("back", (ctx) =>
+  ctx.reply("⬅ Back to Plans", plansMenu)
+);
 
-# ================== HANDLERS ==================
-async def join_request(update, context):
-    req = update.chat_join_request
-    user = req.from_user
-    try:
-        await req.approve()
-    except:
-        return
-
-    # Send unlock message with START button
-    try:
-        await context.bot.send_message(
-            chat_id=user.id,
-            text=UNLOCK_TEXT,
-            parse_mode="Markdown",
-            reply_markup=build_start_keyboard(),
-        )
-    except:
-        pass
-
-async def start(update, context):
-    upsert_user(update.effective_user)
-    await send_full_welcome(update.effective_user.id, context)
-
-async def panel(update, context):
-    if not is_admin(update.effective_user.id):
-        return
-    kb = ReplyKeyboardMarkup(
-        [
-            ["📊 Active Users", "📈 Today Joined"],
-            ["👥 Total Users"],
-            ["📢 Broadcast", "📤 Forward Broadcast"],
-            ["🧹 Delete All", "❌ Cancel"],
-        ],
-        resize_keyboard=True,
-    )
-    await update.message.reply_text("🛠 *ADMIN PANEL*", parse_mode="Markdown", reply_markup=kb)
-
-async def cancel(update, context):
-    if not is_admin(update.effective_user.id):
-        return
-    context.user_data.clear()
-    await update.message.reply_text("❌ Broadcast Mode OFF")
-
-async def delete_all(update, context):
-    deleted = 0
-    cursor = broadcasts_col.find({})
-    for doc in cursor:
-        try:
-            await context.bot.delete_message(doc["chat_id"], doc["message_id"])
-            deleted += 1
-        except:
-            pass
-    broadcasts_col.delete_many({})
-    await update.message.reply_text(f"🧹 Deleted: {deleted}")
-
-async def text_router(update, context):
-    msg = update.message
-    if not msg:
-        return
-
-    user = update.effective_user
-    text = msg.text or ""
-
-    users_col.update_one({"user_id": user.id}, {"$set": {"last_active": datetime.utcnow()}})
-
-    if not is_admin(user.id):
-        return
-
-    mode = context.user_data.get("mode")
-
-    if mode == "broadcast":
-        msgs = context.user_data.get("msgs", [])
-        if text.lower() == "done":
-            users = get_active_users()
-            await msg.reply_text("📢 Broadcasting started…")
-            asyncio.create_task(run_broadcast(context, users, msgs, msg))
-            context.user_data.clear()
-            return
-        if len(msgs) < BROADCAST_LIMIT:
-            msgs.append(msg)
-            context.user_data["msgs"] = msgs
-            await msg.reply_text(f"📩 Message saved ({len(msgs)})\nType DONE when finished.")
-        else:
-            await msg.reply_text("Limit reached, type DONE")
-        return
-
-    if text in ("📢 Broadcast", "📤 Forward Broadcast"):
-        context.user_data["mode"] = "broadcast"
-        context.user_data["msgs"] = []
-        await msg.reply_text("📢 Broadcast Mode ON\nSend msgs now.\nType DONE to start.")
-
-    elif text == "📊 Active Users":
-        await msg.reply_text(f"Active: {count_active()}")
-
-    elif text == "📈 Today Joined":
-        await msg.reply_text(f"Today: {count_today()}")
-
-    elif text == "👥 Total Users":
-        await msg.reply_text(f"Total: {count_total()}")
-
-    elif text == "🧹 Delete All":
-        await delete_all(update, context)
-
-    elif text == "❌ Cancel":
-        await cancel(update, context)
-
-
-# ================== START APP ==================
-if __name__ == "__main__":
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(ChatJoinRequestHandler(join_request))
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("panel", panel))
-    app.add_handler(CommandHandler("cancel", cancel))
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, text_router))
-
-    print("BOT RUNNING…")
-    app.run_polling()
+// =============================
+// RUN BOT
+// =============================
+bot.launch();
+console.log("🚀 VIP Premium Bot Running…");
